@@ -1,36 +1,45 @@
 <?php 
-require 'db.php';
+require './views/header.php';
+require './catalogs/product.php';
 
-function addProduct($code, $name) {
-    $pdo = db();
-
-    // Check if the code already exists
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM catalog_product WHERE code = ?");
-    $stmt->execute([$code]);
-    if ($stmt->fetchColumn() > 0) {
-        return [
-            'success' => false,
-            'error' => "Product with code '$code' already exists."
-        ];
-    }
-
-    // Insert new product
-    $stmt = $pdo->prepare("INSERT INTO catalog_product (code, name) VALUES (?, ?)");
-    $success = $stmt->execute([$code, $name]);
-
-    return [
-        'success' => $success,
-        'id' => $pdo->lastInsertId()
-    ];
+if(isset($_GET['id']) && $_GET['id']!== ''){
+	$product = getProductById($_GET['id']);
+}else{
+	$product = [];
 }
 
-
-function getAllProducts() {
-    return db()->query("SELECT * FROM catalog_product")->fetchAll(PDO::FETCH_ASSOC);
+if (isset($_POST['code']) && isset($_POST['code']) && $_POST['type'] === 'create') {
+	$result = addProduct($_POST['code'],$_POST['name']);
+	if(isset($result['id'])){
+		header("Location: /erp/product.php"."?id=".$result['id']);
+	}
 }
-
-function getProductStock($productId) {
-    $stmt = db()->prepare("SELECT SUM(quantity) FROM reg_accum_stock WHERE product_id = ?");
-    $stmt->execute([$productId]);
-    return $stmt->fetchColumn();
+	var_dump($_POST);
+if (
+    isset($_POST['id']) &&
+    isset($_POST['code']) &&
+    isset($_POST['name']) &&
+    $_POST['type'] === 'update'
+) {
+	echo "found";
+    updateProduct($_POST['id'], $_POST['code'], $_POST['name']);
+	header("Location: /erp/product.php"."?id=".$_POST['id']);
 }
+?>
+
+
+<form method="post" action="" class="w-25 m-3">
+	<input type="hidden" name="id" value="<?php echo $_GET['id']; ?>">
+	<div class="mb-3">
+		<label class="form-label">Код</label>
+		<input class="form-control" type="text" placeholder="code" name="code" required
+			value="<?php echo $product['code'] ?>">
+	</div>
+	<div class="mb-3">
+		<label class="form-label">Назва</label>
+		<input type="text" class="form-control" placeholder="name" name="name" required
+			value="<?php echo $product['name'] ?>">
+	</div>
+	<input class="btn btn-success" type="submit" name="type" value="<?php echo isset($_GET['id']) ? "update" : "create"
+		?>">
+</form>
