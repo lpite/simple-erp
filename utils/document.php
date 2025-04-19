@@ -1,25 +1,45 @@
 <?php
 require_once __DIR__."/db.php";
+
 require_once __DIR__."/../catalogs/product.php";
+
+require_once __DIR__."/../documents/salesDocument.php";
+require_once __DIR__."/../documents/purchaseDocument.php";
+
 require_once __DIR__."/../accumulationRegisters/productStock.php";
 
 
 function unpostDocument($type, $id) {
     $pdo = db();
 
+    $config = [
+        'sales' => [
+            'register_table' => 'reg_accum_stock',
+            'document_table' => 'document_sales',
+        ],
+        'purchase' => [
+            'register_table' => 'reg_accum_stock',
+            'document_table' => 'document_purchase',
+        ],
+        'price_list' => [
+            'register_table' => 'reg_info_price',
+            'document_table' => 'document_price_list',
+        ],
+    ];
+
+    if (!isset($config[$type])) {
+        throw new Exception("Unknown document type: $type");
+    }
+
+    $register = $config[$type]['register_table'];
+    $docTable = $config[$type]['document_table'];
+
     $pdo->prepare("
-        DELETE FROM reg_accum_stock
+        DELETE FROM {$register}
         WHERE source_document_type = ? AND source_document_id = ?
     ")->execute([$type, $id]);
 
-    // 2. Unmark the document as posted
-    if ($type === 'sales') {
-        $pdo->prepare("UPDATE document_sales SET posted = FALSE WHERE id = ?")->execute([$id]);
-    } elseif ($type === 'purchase') {
-        $pdo->prepare("UPDATE document_purchase SET posted = FALSE WHERE id = ?")->execute([$id]);
-    } else {
-        throw new Exception("Unknown document type: $type");
-    }
+    $pdo->prepare("UPDATE {$docTable} SET posted = FALSE WHERE id = ?")->execute([$id]);
 }
 
 
@@ -27,50 +47,16 @@ function postDocument($type, $id) {
     $pdo = db();
 
     unpostDocument($type, $id);
-
-    if ($type === 'sales') {
-        $items = $pdo->prepare("SELECT product_id, quantity FROM document_sales_item WHERE document_id = ?");
-        $items->execute([$id]);
-        $items = $items->fetchAll(PDO::FETCH_ASSOC);
-
-        // Check stock availability
-        foreach ($items as $item) {
-            $stock = getProductStock($item['product_id']);
-            if ($stock < $item['quantity']) {
-                throw new Exception("Not enough stock for product ID {$item['product_id']}");
-            }
-        }
-
-        // Post stock deduction
-        $stmt = $pdo->prepare("
-            INSERT INTO reg_accum_stock (product_id, quantity, source_document_type, source_document_id)
-            VALUES (?, ?, ?, ?)
-        ");
-        foreach ($items as $item) {
-            $stmt->execute([$item['product_id'], -$item['quantity'], $type, $id]);
-        }
-
-        // Mark document as posted
-        $pdo->prepare("UPDATE document_sales SET posted = TRUE WHERE id = ?")->execute([$id]);
-
-    } elseif ($type === 'purchase') {
-        $items = $pdo->prepare("SELECT product_id, quantity FROM document_purchase_item WHERE document_id = ?");
-        $items->execute([$id]);
-        $items = $items->fetchAll(PDO::FETCH_ASSOC);
-
-        // Post stock addition
-        $stmt = $pdo->prepare("
-            INSERT INTO reg_accum_stock (product_id, quantity, source_document_type, source_document_id)
-            VALUES (?, ?, ?, ?)
-        ");
-        foreach ($items as $item) {
-            $stmt->execute([$item['product_id'], $item['quantity'], $type, $id]);
-        }
-
-        // Mark document as posted
-        $pdo->prepare("UPDATE document_purchase SET posted = TRUE WHERE id = ?")->execute([$id]);
-    } else {
-        throw new Exception("Unknown document type: $type");
+    switch ($type) {
+        case 'sales':
+            postSalesDocument($id);
+            break;
+        case 'purchase':
+           postPurchaseDocument($id);
+            break;
+        default:
+            throw new Exception("Unknown document type: $type");
+            break;
     }
 }
 
@@ -82,3 +68,16 @@ function isDocumentPosted($type, $id) {
     return (bool) $stmt->fetchColumn();
 }
 
+function addItemToDocument($type,$id,$item){
+    switch ($type) {
+        case 'sales':
+            addSalesItem($id,$item["product_id"],1,1);
+            break;
+        case 'purchase':
+            addPurchaseItem($id,$item["product_id"],1,1);
+            break;
+        default:
+            throw new Exception("Unknown document type: $type");
+            break;
+    }
+}

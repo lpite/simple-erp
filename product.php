@@ -12,16 +12,18 @@ if (isset($_POST['code']) && isset($_POST['code']) && $_POST['type'] === 'create
 	$result = addProduct($_POST['code'],$_POST['name']);
 	if(isset($result['id'])){
 		header("Location: /erp/product.php"."?id=".$result['id']);
+	}else{
+		var_dump($result);
+		// header("Location: /erp/product.php");
 	}
 }
-	var_dump($_POST);
+
 if (
     isset($_POST['id']) &&
     isset($_POST['code']) &&
     isset($_POST['name']) &&
     $_POST['type'] === 'update'
 ) {
-	echo "found";
     updateProduct($_POST['id'], $_POST['code'], $_POST['name']);
 	header("Location: /erp/product.php"."?id=".$_POST['id']);
 }

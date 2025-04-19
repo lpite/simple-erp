@@ -4,7 +4,7 @@ require './views/header.php';
 require './catalogs/product.php';
 require './accumulationRegisters/productStock.php';
 
-$products = getAllProducts(['name'=>$_GET['q'],'code'=>$_GET['q']]);
+$products = getAllProducts(['name'=>$_GET['q'] ?? '','code'=>$_GET['q'] ?? '']);
 
 if ($_GET['docId']) {
 	echo "found";
@@ -17,10 +17,10 @@ if(isset($_GET['q'])){
 	echo $_GET['q'];
 }
 if (isset($_POST["newProduct"])) {
-	$itemsList = $_SESSION['newItems_'.$_GET['docId'].'_'.$_GET['type']] ?? [];
+	$itemsList = $_SESSION['newItems'] ?? [];
 	$product = getProductById($_POST["newProduct"]);
 	array_push($itemsList,['product_id'=>$_POST["newProduct"],'product_code'=>$product['code'],'product_name'=>$product['name'],'quantity'=>1]);
-	$_SESSION['newItems_'.$_GET['docId'].'_'.$_GET['type']] = $itemsList;
+	$_SESSION['newItems'] = $itemsList;
 	exit;
 }
 
